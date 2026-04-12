@@ -761,6 +761,7 @@ async def start_from_seed(
     from services.watering_calculator import generate_water_schedule
     from config import settings as app_config
 
+    logger.debug(f"fetching seedmodel")
     result = await db.execute(select(SeedModel).where(SeedModel.id == request.seed_id))
     seed = result.scalar_one_or_none()
     if not seed:
@@ -876,6 +877,7 @@ async def start_from_seed(
         notes=request.notes or f"Started from seed: {seed.name}",
     )
 
+    logger.debug("db.add(plant)")
     db.add(plant)
     await db.flush()  # Get plant.id for task creation
 
