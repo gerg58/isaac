@@ -53,6 +53,9 @@ class Animal(Base):
     microchip = Column(String(50))
     registration_number = Column(String(100))
 
+    # Photo
+    photo_path = Column(String(500), nullable=True)  # Path to uploaded photo
+
     # Physical
     color = Column(String(50))
     markings = Column(Text)
@@ -117,9 +120,6 @@ class Animal(Base):
     min_temp = Column(Float)  # Minimum comfortable temperature in F
     needs_blanket_below = Column(Float)  # Temperature below which they need a blanket
     cold_sensitive = Column(Boolean, default=False)
-
-    # Photo
-    photo_path = Column(String(500), nullable=True)  # Path to uploaded photo
 
     # Status
     is_active = Column(Boolean, default=True)
