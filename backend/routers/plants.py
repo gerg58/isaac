@@ -347,12 +347,15 @@ def plant_to_response(plant: Plant) -> dict:
         "sub_location": plant.sub_location,
         "date_planted": plant.date_planted,
         "source": plant.source,
+
         "grow_zones": plant.grow_zones,
+        "plant_zone": plant.plant_zone,
         "sun_requirement": plant.sun_requirement,
         "soil_requirements": plant.soil_requirements,
         "plant_spacing": plant.plant_spacing,
         "size_full_grown": plant.size_full_grown,
         "growth_rate": plant.growth_rate,
+
         "min_temp": plant.min_temp,
         "frost_sensitive": plant.frost_sensitive,
         "needs_cover_below_temp": plant.needs_cover_below_temp,
@@ -360,28 +363,35 @@ def plant_to_response(plant: Plant) -> dict:
         "drought_tolerant": plant.drought_tolerant,
         "salt_tolerant": plant.salt_tolerant,
         "needs_shade_above_temp": plant.needs_shade_above_temp,
+
         "water_schedule": plant.water_schedule,
         "moisture_preference": plant.moisture_preference,
         "last_watered": plant.last_watered,
         "last_watering_decision": plant.last_watering_decision,
+        "fertilize_schedule": plant.fertilize_schedule,
+        "last_fertilized": plant.last_fertilized,
+    
         "receives_rain": plant.receives_rain,
         "rain_threshold_inches": plant.rain_threshold_inches,
         "sprinkler_enabled": plant.sprinkler_enabled,
         "sprinkler_schedule": plant.sprinkler_schedule,
-        "fertilize_schedule": plant.fertilize_schedule,
-        "last_fertilized": plant.last_fertilized,
+    
         "prune_frequency": plant.prune_frequency,
         "prune_months": plant.prune_months,
         "last_pruned": plant.last_pruned,
+
         "produces_months": plant.produces_months,
         "harvest_frequency": plant.harvest_frequency,
         "how_to_harvest": plant.how_to_harvest,
+
         "uses": plant.uses,
         "propagation_methods": plant.propagation_methods,
         "cultivation_details": plant.cultivation_details,
         "known_hazards": plant.known_hazards,
         "special_considerations": plant.special_considerations,
+
         "photo_path": plant.photo_path,
+
         "seed_id": plant.seed_id,
         "seed_name": plant.seed.name if plant.seed else None,
         "date_sown": plant.date_sown,
@@ -394,11 +404,14 @@ def plant_to_response(plant: Plant) -> dict:
         "expected_transplant_date": plant.expected_transplant_date,
         "farm_area_id": plant.farm_area_id,
         "farm_area_name": plant.farm_area.name if plant.farm_area else None,
+
         "is_active": plant.is_active,
         "notes": plant.notes,
         "references": plant.references,
         "created_at": plant.created_at,
+
         "tags": [{"id": t.id, "name": t.name, "color": t.color} for t in plant.tags],
+
         "age_years": plant.age_years,
         "next_watering": plant.next_watering,
         "next_fertilizing": plant.next_fertilizing,
@@ -761,6 +774,7 @@ async def start_from_seed(
     from services.watering_calculator import generate_water_schedule
     from config import settings as app_config
 
+    logger.debug(f"fetching seedmodel")
     result = await db.execute(select(SeedModel).where(SeedModel.id == request.seed_id))
     seed = result.scalar_one_or_none()
     if not seed:
@@ -876,6 +890,7 @@ async def start_from_seed(
         notes=request.notes or f"Started from seed: {seed.name}",
     )
 
+    logger.debug("db.add(plant)")
     db.add(plant)
     await db.flush()  # Get plant.id for task creation
 
@@ -903,7 +918,8 @@ async def start_from_seed(
         db.add(transplant_task)
 
     await db.commit()
-    await db.refresh(plant)
+    # await db.refresh(plant)
+    await db.refresh(plant, ["tags", "seed", "farm_area"])
 
     logger.info(f"Created plant '{plant.name}' (qty={request.quantity}, method={request.planting_method}) from seed #{seed.id}")
     return plant_to_response(plant)
