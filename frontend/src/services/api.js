@@ -389,7 +389,7 @@ export const completeFarmAreaMaintenance = (taskId, data) =>
 export const setFarmAreaMaintenanceDueDate = (taskId, dueDate) =>
   api.put(`/farm-areas/maintenance/${taskId}/due-date/`, { due_date: dueDate })
 export const getFarmAreaLogs = (areaId) => api.get(`/farm-areas/${areaId}/logs/`)
-export const getFarmAreaTypes = () => api.get('/farm-areas/types/list/')
+export const getFarmAreaTypes = () => api.get('/farm-areas/types/list')
 
 // Production
 export const getProductionStats = (year) =>
