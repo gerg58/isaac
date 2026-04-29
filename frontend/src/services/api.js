@@ -345,7 +345,7 @@ export const completeVehicleMaintenance = (taskId, data) =>
 export const setVehicleMaintenanceDueDate = (taskId, dueDate) =>
   api.put(`/vehicles/maintenance/${taskId}/due-date`, { due_date: dueDate })
 export const getVehicleLogs = (vehicleId) => api.get(`/vehicles/${vehicleId}/logs/`)
-export const getVehicleTypes = () => api.get('/vehicles/types/list/')
+export const getVehicleTypes = () => api.get('/vehicles/types/list')
 
 // Equipment
 export const getEquipment = (params) => api.get('/equipment/', { params })

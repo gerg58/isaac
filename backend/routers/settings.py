@@ -849,7 +849,7 @@ async def push_to_production(admin: User = Depends(require_admin)):
     }
 
     # Deploy script that mirrors deploy.sh logic but for local Pi paths
-    deploy_script = '''#!/bin/bash
+    deploy_script = r'''#!/bin/bash
 set -e
 export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
 
