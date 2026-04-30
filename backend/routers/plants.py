@@ -437,7 +437,10 @@ async def list_plants(
     # Cap limit for DoS prevention
     limit = min(limit, 1000)
 
-    query = select(Plant).options(selectinload(Plant.tags))
+    query = select(Plant).options(
+        selectinload(Plant.tags),
+        selectinload(Plant.farm_area)
+    )
 
     if active_only:
         query = query.where(Plant.is_active == True)

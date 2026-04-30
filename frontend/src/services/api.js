@@ -372,22 +372,22 @@ export const getEquipmentTypes = () => api.get('/equipment/types/list/')
 
 // Farm Areas
 export const getFarmAreas = (params) => api.get('/farm-areas/', { params })
-export const getFarmArea = (id) => api.get(`/farm-areas/${id}/`)
+export const getFarmArea = (id) => api.get(`/farm-areas/${id}`)
 export const createFarmArea = (data) => api.post('/farm-areas/', data)
-export const updateFarmArea = (id, data) => api.put(`/farm-areas/${id}/`, data)
-export const deleteFarmArea = (id) => api.delete(`/farm-areas/${id}/`)
+export const updateFarmArea = (id, data) => api.put(`/farm-areas/${id}`, data)
+export const deleteFarmArea = (id) => api.delete(`/farm-areas/${id}`)
 export const getFarmAreaMaintenance = (areaId, params) =>
-  api.get(`/farm-areas/${areaId}/maintenance/`, { params })
+  api.get(`/farm-areas/${areaId}/maintenance`, { params })
 export const createFarmAreaMaintenance = (areaId, data) =>
-  api.post(`/farm-areas/${areaId}/maintenance/`, data)
+  api.post(`/farm-areas/${areaId}/maintenance`, data)
 export const updateFarmAreaMaintenance = (taskId, data) =>
-  api.put(`/farm-areas/maintenance/${taskId}/`, data)
+  api.put(`/farm-areas/maintenance/${taskId}`, data)
 export const deleteFarmAreaMaintenance = (taskId) =>
-  api.delete(`/farm-areas/maintenance/${taskId}/`)
+  api.delete(`/farm-areas/maintenance/${taskId}`)
 export const completeFarmAreaMaintenance = (taskId, data) =>
-  api.post(`/farm-areas/maintenance/${taskId}/complete/`, data)
+  api.post(`/farm-areas/maintenance/${taskId}/complete`, data)
 export const setFarmAreaMaintenanceDueDate = (taskId, dueDate) =>
-  api.put(`/farm-areas/maintenance/${taskId}/due-date/`, { due_date: dueDate })
+  api.put(`/farm-areas/maintenance/${taskId}/due-date`, { due_date: dueDate })
 export const getFarmAreaLogs = (areaId) => api.get(`/farm-areas/${areaId}/logs/`)
 export const getFarmAreaTypes = () => api.get('/farm-areas/types/list')
 
