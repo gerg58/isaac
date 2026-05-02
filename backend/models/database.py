@@ -295,17 +295,21 @@ async def _create_indexes():
         # Tasks - filtered by active status and sorted/filtered by due date constantly
         "CREATE INDEX IF NOT EXISTS idx_tasks_is_active ON tasks(is_active)",
         "CREATE INDEX IF NOT EXISTS idx_tasks_due_date ON tasks(due_date)",
-        "CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)",
+        # "CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to ON tasks(assigned_to)",
+        ## gerg58 use actual fields for multiple indices
+        "CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to_worker ON tasks(assigned_to_worker_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to_user ON tasks(assigned_to_user_id)",
+        "CREATE INDEX IF NOT EXISTS idx_tasks_assigned_to_member ON tasks(assigned_to_member_id)",
         # Budget - transaction date range queries drive the budget page
         "CREATE INDEX IF NOT EXISTS idx_budget_transactions_date ON budget_transactions(transaction_date)",
-        "CREATE INDEX IF NOT EXISTS idx_budget_transactions_category ON budget_transactions(budget_category_id)",
-        "CREATE INDEX IF NOT EXISTS idx_budget_transactions_account ON budget_transactions(budget_account_id)",
-        "CREATE INDEX IF NOT EXISTS idx_budget_categories_account ON budget_categories(budget_account_id)",
+        "CREATE INDEX IF NOT EXISTS idx_budget_transactions_category ON budget_transactions(category_id)",
+        "CREATE INDEX IF NOT EXISTS idx_budget_transactions_account ON budget_transactions(account_id)",
+        "CREATE INDEX IF NOT EXISTS idx_budget_categories_account ON budget_categories(destination_account_id)",
         "CREATE INDEX IF NOT EXISTS idx_budget_categories_active ON budget_categories(is_active)",
         "CREATE INDEX IF NOT EXISTS idx_budget_accounts_active ON budget_accounts(is_active)",
         # Plants - active plant lookups and care schedule queries
         "CREATE INDEX IF NOT EXISTS idx_plants_is_active ON plants(is_active)",
-        "CREATE INDEX IF NOT EXISTS idx_plants_user_id ON plants(user_id)",
+        # "CREATE INDEX IF NOT EXISTS idx_plants_user_id ON plants(user_id)",
         # Animals
         "CREATE INDEX IF NOT EXISTS idx_animals_is_active ON animals(is_active)",
         # Home maintenance
