@@ -1263,7 +1263,10 @@ async def update_plant(
 ):
     """Update a plant's information"""
     result = await db.execute(
-        select(Plant).options(selectinload(Plant.tags)).where(Plant.id == plant_id)
+        select(Plant).options(
+            selectinload(Plant.tags),
+            selectinload(Plant.farm_area)
+        ).where(Plant.id == plant_id)
     )
     plant = result.scalar_one_or_none()
     if not plant:
@@ -1286,9 +1289,12 @@ async def update_plant(
     # Sync care reminders to calendar
     await sync_plant_reminders(db, plant)
 
-    # Reload with tags
+    # Reload with tags and farm_area
     result = await db.execute(
-        select(Plant).options(selectinload(Plant.tags)).where(Plant.id == plant_id)
+        select(Plant).options(
+            selectinload(Plant.tags),
+            selectinload(Plant.farm_area)
+        ).where(Plant.id == plant_id)
     )
     plant = result.scalar_one()
     return plant_to_response(plant)

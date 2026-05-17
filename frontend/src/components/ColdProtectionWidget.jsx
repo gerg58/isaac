@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Snowflake, PawPrint, Check, X } from 'lucide-react'
-import { getColdProtection, getAnimalsNeedingBlanket } from '../services/api'
+import { getColdProtection, getAnimalsNeedingBlanket, getSettings } from '../services/api'
 import { useSettings } from '../contexts/SettingsContext'
 
 // Helper to get today's date string for localStorage keys in app timezone
@@ -38,6 +38,19 @@ function ColdProtectionWidget({ onAcknowledge }) {
   const [animalsDismissed, setAnimalsDismissed] = useState(() => getStoredState('animals_dismissed'))
   const [plantsAcknowledged, setPlantsAcknowledged] = useState(() => getStoredState('plants_acknowledged'))
   const [animalsAcknowledged, setAnimalsAcknowledged] = useState(() => getStoredState('animals_acknowledged'))
+  const [unitSystem, setUnitSystem] = useState('us')
+
+  const isMetric = unitSystem === 'si' || unitSystem === 'metric'
+  // Display a temperature (from the forecast, already in display units) with its unit label
+  const fmtTemp = (val) => val != null ? `${Math.round(val)}°${isMetric ? 'C' : 'F'}` : '–'
+  // Convert a DB-stored °F value to display units
+  const fmtStoredTemp = (val) => {
+    if (val == null) return '–'
+    const display = isMetric ? Math.round((val - 32) * 5 / 9) : Math.round(val)
+    return `${display}°${isMetric ? 'C' : 'F'}`
+  }
+  // Convert forecast_low (which may be in °C) to °F for the backend API call
+  const toFahrenheit = (val) => isMetric ? val * 9 / 5 + 32 : val
 
   // Persist state changes to localStorage
   const handlePlantsDismissed = (value) => {
@@ -66,12 +79,18 @@ function ColdProtectionWidget({ onAcknowledge }) {
         // If we have a forecast low, check for animals needing blankets
         if (plantResponse.data?.forecast_low) {
           try {
-            const animalResponse = await getAnimalsNeedingBlanket(plantResponse.data.forecast_low)
+            const animalResponse = await getAnimalsNeedingBlanket(toFahrenheit(plantResponse.data.forecast_low))
             setAnimals(animalResponse.data || [])
           } catch (error) {
             console.error('Failed to fetch animal blanket data:', error)
           }
         }
+        // Fetch unit system setting alongside weather data
+        try {
+          const settingsRes = await getSettings()
+          const units = settingsRes.data?.settings?.weather_units?.value
+          setUnitSystem(units === 'si' || units === 'metric' ? units : 'us')
+        } catch (_) { /* leave unitSystem as default 'us' */ }
       } catch (error) {
         console.error('Failed to fetch cold protection data:', error)
       } finally {
@@ -94,7 +113,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
           id: 'cold-protection',
           type: 'cold',
           title: `Cold Protection: ${plantData.plants.length} plants`,
-          message: `Low: ${plantData.forecast_low}°F`,
+          message: `Low: ${fmtTemp(plantData.forecast_low)}`,
           plants: plantData.plants
         })
       }
@@ -103,7 +122,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
           id: 'blanket-needed',
           type: 'blanket',
           title: `Blanket Needed: ${animals.length} animal${animals.length > 1 ? 's' : ''}`,
-          message: plantData?.forecast_low ? `Low: ${plantData.forecast_low}°F` : '',
+          message: plantData?.forecast_low ? `Low: ${fmtTemp(plantData.forecast_low)}` : '',
           animals: animals
         })
       }
@@ -148,7 +167,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
               Cold Protection: {plantData.plants.length} plants
             </span>
             <span className="text-xs" style={{ color: coldColors.text, opacity: 0.7 }}>
-              (Low: {plantData.forecast_low}°F)
+              {fmtTemp(plantData.forecast_low)}
             </span>
             <div className="flex-1" />
             <button
@@ -173,7 +192,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
                 className={`text-xs ${coldColors.chip} px-2 py-0.5 rounded`}
                 style={{ color: coldColors.text }}
               >
-                {plant.name} ({plant.min_temp}°)
+                {plant.name} ({fmtStoredTemp(plant.min_temp)})
               </span>
             ))}
           </div>
@@ -190,7 +209,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
             </span>
             {plantData?.forecast_low && (
               <span className="text-xs" style={{ color: blanketColors.text, opacity: 0.7 }}>
-                (Low: {plantData.forecast_low}°F)
+                {fmtTemp(plantData.forecast_low)}
               </span>
             )}
             <div className="flex-1" />
@@ -216,7 +235,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
                 className={`text-xs ${blanketColors.chip} px-2 py-0.5 rounded`}
                 style={{ color: blanketColors.text }}
               >
-                {animal.name} {animal.color ? `(${animal.color})` : ''} - blanket below {animal.needs_blanket_below}°
+                {animal.name} {animal.color ? `(${animal.color})` : ''} - blanket below {fmtStoredTemp(animal.needs_blanket_below)}
               </span>
             ))}
           </div>

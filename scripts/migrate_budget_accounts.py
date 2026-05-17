@@ -6,7 +6,7 @@ One-time migration script to:
 3. Set account_id on all existing categories
 Run against dev or prod database directly.
 Usage: python3 scripts/migrate_budget_accounts.py <db_path>
-Example: python3 scripts/migrate_budget_accounts.py /opt/isaac/backend/data/levi.db
+Example: python3 scripts/migrate_budget_accounts.py /opt/isaac/backend/data/isaac.db
 """
 import sqlite3
 import sys

@@ -426,6 +426,7 @@ async def get_weather_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Get weather readings for the past X hours."""
+    logger.debug(f"get_weather_history (-{hours} hours)")
     try:
         start = datetime.utcnow() - timedelta(hours=hours)
         return await weather_service.get_readings_range(db, start, datetime.utcnow())

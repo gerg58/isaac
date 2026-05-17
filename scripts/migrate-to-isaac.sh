@@ -47,12 +47,12 @@ echo
 # ---- Step 1: Back up databases ----
 step 1 "Backing up databases..."
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
-if [ -f /opt/levi/backend/data/levi.db ]; then
-    cp /opt/levi/backend/data/levi.db "/opt/levi/backend/data/levi.db.pre-isaac-$TIMESTAMP"
+if [ -f /opt/levi/backend/data/isaac.db ]; then
+    cp /opt/levi/backend/data/isaac.db "/opt/levi/backend/data/isaac.db.pre-isaac-$TIMESTAMP"
     echo "  Backed up prod DB"
 fi
-if [ -f /opt/isaac/backend/data/levi.db ]; then
-    cp /opt/isaac/backend/data/levi.db "/opt/isaac/backend/data/levi.db.pre-isaac-$TIMESTAMP"
+if [ -f /opt/isaac/backend/data/isaac.db ]; then
+    cp /opt/isaac/backend/data/isaac.db "/opt/isaac/backend/data/isaac.db.pre-isaac-$TIMESTAMP"
     echo "  Backed up dev DB"
 fi
 

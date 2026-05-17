@@ -3,7 +3,7 @@
 import sqlite3
 import sys
 
-DB_PATH = "/opt/isaac/backend/data/levi.db"
+DB_PATH = "/opt/isaac/backend/data/isaac.db"
 
 # Data keyed by seed ID
 SEED_DATA = {

@@ -35,6 +35,74 @@ router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 weather_service = WeatherService()
 
 
+# ---------------------------------------------------------------------------
+# Dashboard task helpers — eliminate 3× duplication in get_dashboard()
+# ---------------------------------------------------------------------------
+
+async def _resolve_member_names(
+    tasks: list, db: AsyncSession
+) -> dict:
+    """
+    Build a {member_id: display_name} dict for all members referenced in
+    a list of Task ORM objects (covers both single and multi-assignment).
+    """
+    member_ids: set = set()
+    for t in tasks:
+        if t.assigned_to_member_id:
+            member_ids.add(t.assigned_to_member_id)
+        if hasattr(t, 'assigned_members') and t.assigned_members:
+            for m in t.assigned_members:
+                member_ids.add(m.id)
+    if not member_ids:
+        return {}
+    result = await db.execute(
+        select(TeamMember).where(TeamMember.id.in_(member_ids))
+    )
+    return {m.id: m.nickname or m.name for m in result.scalars().all()}
+
+
+def _build_dashboard_task(
+    t,
+    member_names: dict,
+    is_backlog: bool = False,
+    is_completed_override: bool | None = None,
+    get_linked_location=None,
+    get_linked_entity=None,
+) -> "DashboardTask":
+    """
+    Construct a DashboardTask from a Task ORM row.
+    Pass is_completed_override to substitute the DB value (e.g. auto-completed events).
+    get_linked_location / get_linked_entity are the inner functions from the
+    get_dashboard scope; pass None in other endpoints that don't need them.
+    """
+    is_completed = is_completed_override if is_completed_override is not None else t.is_completed
+    members = t.assigned_members if hasattr(t, 'assigned_members') and t.assigned_members else []
+    return DashboardTask(
+        id=t.id,
+        title=t.title,
+        description=t.description,
+        task_type=t.task_type.value if t.task_type else "todo",
+        category=t.category.value if t.category else "custom",
+        priority=t.priority,
+        due_date=t.due_date,
+        due_time=t.due_time,
+        end_time=t.end_time,
+        location=t.location,
+        linked_location=get_linked_location(t) if get_linked_location else None,
+        linked_entity=get_linked_entity(t) if get_linked_entity else None,
+        is_completed=is_completed,
+        is_backlog=is_backlog,
+        assigned_to_member_id=t.assigned_to_member_id,
+        assigned_to_member_name=(
+            member_names.get(t.assigned_to_member_id) if t.assigned_to_member_id else None
+        ),
+        assigned_member_ids=[m.id for m in members],
+        assigned_member_names=[
+            member_names.get(m.id, m.nickname or m.name) for m in members
+        ],
+    )
+
+
 # Response Schemas
 class DashboardWeather(BaseModel):
     temperature: Optional[float]
@@ -394,50 +462,22 @@ async def get_dashboard(
     if is_farmhand:
         tasks = [t for t in tasks if t.visible_to_farmhands]
 
-    # Get member names for assigned tasks (both single and multi-assignment)
-    today_member_names = {}
-    today_member_ids = set()
-    for t in tasks:
-        if t.assigned_to_member_id:
-            today_member_ids.add(t.assigned_to_member_id)
-        if hasattr(t, 'assigned_members') and t.assigned_members:
-            for m in t.assigned_members:
-                today_member_ids.add(m.id)
-    if today_member_ids:
-        member_result = await db.execute(
-            select(TeamMember).where(TeamMember.id.in_(today_member_ids))
-        )
-        for m in member_result.scalars().all():
-            today_member_names[m.id] = m.nickname or m.name
-
+    # Resolve member names for today's tasks then build DashboardTask list
+    today_member_names = await _resolve_member_names(tasks, db)
     tasks_today = []
     for t in tasks:
-        # For events, check if they're past their end time - auto-mark as completed
-        is_completed = t.is_completed
+        # For events, auto-mark completed once past their end time
+        completed_override = None
         if t.task_type == TaskType.EVENT and t.due_date == today and not t.is_completed:
             end_time = t.end_time or t.due_time
             if end_time and end_time < current_time_str:
-                is_completed = True
-
-        tasks_today.append(DashboardTask(
-            id=t.id,
-            title=t.title,
-            description=t.description,
-            task_type=t.task_type.value if t.task_type else "todo",
-            category=t.category.value if t.category else "custom",
-            priority=t.priority,
-            due_date=t.due_date,
-            due_time=t.due_time,
-            end_time=t.end_time,
-            location=t.location,
-            linked_location=get_linked_location(t),
-            linked_entity=get_linked_entity(t),
-            is_completed=is_completed,
+                completed_override = True
+        tasks_today.append(_build_dashboard_task(
+            t, today_member_names,
             is_backlog=t.is_backlog or False,
-            assigned_to_member_id=t.assigned_to_member_id,
-            assigned_to_member_name=today_member_names.get(t.assigned_to_member_id) if t.assigned_to_member_id else None,
-            assigned_member_ids=[m.id for m in t.assigned_members] if hasattr(t, 'assigned_members') and t.assigned_members else [],
-            assigned_member_names=[today_member_names.get(m.id, m.nickname or m.name) for m in t.assigned_members] if hasattr(t, 'assigned_members') and t.assigned_members else [],
+            is_completed_override=completed_override,
+            get_linked_location=get_linked_location,
+            get_linked_entity=get_linked_entity,
         ))
 
     # Get undated todos (todos without a due date) - exclude backlog and worker tasks
@@ -457,42 +497,14 @@ async def get_dashboard(
     if is_farmhand:
         undated = [t for t in undated if t.visible_to_farmhands]
 
-    # Get member names for undated tasks
-    undated_member_names = {}
-    undated_member_ids = set()
-    for t in undated:
-        if t.assigned_to_member_id:
-            undated_member_ids.add(t.assigned_to_member_id)
-        if hasattr(t, 'assigned_members') and t.assigned_members:
-            for m in t.assigned_members:
-                undated_member_ids.add(m.id)
-    if undated_member_ids:
-        member_result = await db.execute(
-            select(TeamMember).where(TeamMember.id.in_(undated_member_ids))
-        )
-        for m in member_result.scalars().all():
-            undated_member_names[m.id] = m.nickname or m.name
-
+    # Resolve member names for undated tasks then build DashboardTask list
+    undated_member_names = await _resolve_member_names(undated, db)
     undated_todos = [
-        DashboardTask(
-            id=t.id,
-            title=t.title,
-            description=t.description,
-            task_type=t.task_type.value if t.task_type else "todo",
-            category=t.category.value if t.category else "custom",
-            priority=t.priority,
-            due_date=None,
-            due_time=t.due_time,
-            end_time=t.end_time,
-            location=t.location,
-            linked_location=get_linked_location(t),
-            linked_entity=get_linked_entity(t),
-            is_completed=t.is_completed,
+        _build_dashboard_task(
+            t, undated_member_names,
             is_backlog=False,
-            assigned_to_member_id=t.assigned_to_member_id,
-            assigned_to_member_name=undated_member_names.get(t.assigned_to_member_id) if t.assigned_to_member_id else None,
-            assigned_member_ids=[m.id for m in t.assigned_members] if hasattr(t, 'assigned_members') and t.assigned_members else [],
-            assigned_member_names=[undated_member_names.get(m.id, m.nickname or m.name) for m in t.assigned_members] if hasattr(t, 'assigned_members') and t.assigned_members else [],
+            get_linked_location=get_linked_location,
+            get_linked_entity=get_linked_entity,
         )
         for t in undated
     ]
@@ -510,43 +522,14 @@ async def get_dashboard(
             .limit(15)
         )
         backlog = result.scalars().all()
-        # Get member names for assigned backlog tasks (both single and multi-assignment)
-        member_names = {}
-        # Collect all member IDs from both single assignment and multi-assignment
-        all_member_ids = set()
-        for t in backlog:
-            if t.assigned_to_member_id:
-                all_member_ids.add(t.assigned_to_member_id)
-            if hasattr(t, 'assigned_members') and t.assigned_members:
-                for m in t.assigned_members:
-                    all_member_ids.add(m.id)
-        if all_member_ids:
-            member_result = await db.execute(
-                select(TeamMember).where(TeamMember.id.in_(all_member_ids))
-            )
-            for m in member_result.scalars().all():
-                member_names[m.id] = m.nickname or m.name
-
+        # Resolve member names for backlog tasks then build DashboardTask list
+        backlog_member_names = await _resolve_member_names(backlog, db)
         backlog_tasks = [
-            DashboardTask(
-                id=t.id,
-                title=t.title,
-                description=t.description,
-                task_type=t.task_type.value if t.task_type else "todo",
-                category=t.category.value if t.category else "custom",
-                priority=t.priority,
-                due_date=t.due_date,
-                due_time=t.due_time,
-                end_time=t.end_time,
-                location=t.location,
-                linked_location=get_linked_location(t),
-                linked_entity=get_linked_entity(t),
-                is_completed=t.is_completed,
+            _build_dashboard_task(
+                t, backlog_member_names,
                 is_backlog=True,
-                assigned_to_member_id=t.assigned_to_member_id,
-                assigned_to_member_name=member_names.get(t.assigned_to_member_id) if t.assigned_to_member_id else None,
-                assigned_member_ids=[m.id for m in t.assigned_members] if hasattr(t, 'assigned_members') and t.assigned_members else [],
-                assigned_member_names=[member_names.get(m.id, m.nickname or m.name) for m in t.assigned_members] if hasattr(t, 'assigned_members') and t.assigned_members else [],
+                get_linked_location=get_linked_location,
+                get_linked_entity=get_linked_entity,
             )
             for t in backlog
         ]
@@ -1527,14 +1510,14 @@ async def get_cold_protection_needed(
                 # This is a night period - check if it's still upcoming or current
                 end_time_str = period.get("end_time")
                 if end_time_str:
-                    logger.debug(f"Inside night period tz_name is {tz_name} end_time_str is {end_time_str}")
+                    # logger.debug(f"Inside night period tz_name is {tz_name} end_time_str is {end_time_str}")
                     try:
                         # Parse ISO format with timezone
                         end_time = datetime.fromisoformat(end_time_str.replace('Z', '+00:00'))
                         # If for some reason it's still naive, force UTC
                         if end_time.tzinfo is None:
                             end_time = end_time.replace(tzinfo=timezone.utc)
-                        logger.debug(f"<end_time is {end_time}, now is {now}")
+                        # logger.debug(f"<end_time is {end_time}, now is {now}")
                        # Only use this period if it ends more than 2 hours from now
                         # (so we don't show an overnight that's about to end)
                         if end_time > now + timedelta(hours=2):
@@ -1561,10 +1544,17 @@ async def get_cold_protection_needed(
     if check_temp is None:
         return {"needs_protection": False, "plants": [], "current_temp": None, "forecast_low": None}
 
+    # Normalise check_temp to °F — plant thresholds are stored in °F
+    weather_units = await get_setting(db, "weather_units") or "us"
+    if weather_units == "metric":
+        check_temp_f = check_temp * 9 / 5 + 32
+    else:
+        check_temp_f = check_temp
+
     # Add 7 degree buffer - NOAA forecasts can be optimistic by 6-7 degrees
     # e.g., NOAA forecast 32°F but actual low was 25.7°F
     # So if plant's min_temp is 32°F and forecast is 39°F, warn because actual could be ~32°F
-    buffer_degrees = 7
+    buffer_degrees = int(await get_setting(db, "cold_protection_buffer") or 7)
 
     # Get frost-sensitive plants that need cover
     # Warn if forecast_low <= (plant_threshold + buffer)
@@ -1590,6 +1580,7 @@ async def get_cold_protection_needed(
     if not plants:
         return {"needs_protection": False, "plants": [], "current_temp": current_temp, "forecast_low": forecast_low}
 
+    logger.debug("Hello gregory!")
     plant_list = [
         {
             "id": p.id,
@@ -1667,7 +1658,7 @@ from pathlib import Path
 import shutil
 
 # Hardcoded paths for security - prevents path traversal attacks
-ISAAC_DATA_DIR = Path("/opt/isaac/data")
+ISAAC_DATA_DIR = Path("/opt/isaac/backend/data")
 ISAAC_LOGS_DIR = Path("/opt/isaac/logs")
 
 
@@ -1754,7 +1745,7 @@ async def get_storage_stats(db: AsyncSession = Depends(get_db), user: User = Dep
         usage_percent = 0
 
     # Get Isaac component sizes from hardcoded paths only
-    db_size = _safe_get_size(ISAAC_DATA_DIR / "levi.db")
+    db_size = _safe_get_size(ISAAC_DATA_DIR / "isaac.db")
     log_size = _safe_dir_size(ISAAC_LOGS_DIR)
     app_total = db_size + log_size
 

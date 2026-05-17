@@ -24,8 +24,8 @@ class Settings(BaseSettings):
     debug: bool = True
     is_dev_instance: bool = False  # Set to True for dev environment
 
-    # Database (using levi.db for backwards compatibility)
-    database_url: str = "sqlite+aiosqlite:///./data/levi.db"
+    # Database
+    database_url: str = "sqlite+aiosqlite:///./data/isaac.db"
 
     # Server
     host: str = "0.0.0.0"

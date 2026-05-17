@@ -193,7 +193,7 @@ async def list_prod_feedback(
             detail="This action is only available on the dev instance"
         )
 
-    prod_db_path = "/opt/isaac/backend/data/levi.db"
+    prod_db_path = "/opt/isaac/backend/data/isaac.db"
 
     if not os.path.exists(prod_db_path):
         return []
@@ -263,7 +263,7 @@ async def review_feedback(
             detail="This action is only available on the dev instance"
         )
 
-    prod_db_path = "/opt/isaac/backend/data/levi.db"
+    prod_db_path = "/opt/isaac/backend/data/isaac.db"
 
     if not os.path.exists(prod_db_path):
         raise HTTPException(status_code=404, detail="Production database not found")
@@ -370,7 +370,7 @@ async def pull_feedback_from_prod(
             detail="This action is only available on the dev instance"
         )
 
-    prod_db_path = "/opt/isaac/backend/data/levi.db"
+    prod_db_path = "/opt/isaac/backend/data/isaac.db"
 
     if not os.path.exists(prod_db_path):
         raise HTTPException(
@@ -529,7 +529,7 @@ async def get_my_feedback(
                 }
         else:
             # On prod, query the dev database directly
-            dev_db_path = "/opt/isaac/backend/data/levi.db"
+            dev_db_path = "/opt/isaac/backend/data/isaac.db"
             if os.path.exists(dev_db_path):
                 try:
                     conn = sqlite3.connect(dev_db_path)
@@ -747,7 +747,7 @@ async def get_prod_feedback_status(
             detail="This action is only available on the dev instance"
         )
 
-    prod_db_path = "/opt/isaac/backend/data/levi.db"
+    prod_db_path = "/opt/isaac/backend/data/isaac.db"
 
     if not os.path.exists(prod_db_path):
         return {"enabled": False, "error": "Production database not found"}
@@ -786,7 +786,7 @@ async def delete_prod_feedback(
             detail="This action is only available on the dev instance"
         )
 
-    prod_db_path = "/opt/isaac/backend/data/levi.db"
+    prod_db_path = "/opt/isaac/backend/data/isaac.db"
 
     if not os.path.exists(prod_db_path):
         raise HTTPException(status_code=404, detail="Production database not found")
@@ -831,7 +831,7 @@ async def toggle_feedback_on_prod(
             detail="This action is only available on the dev instance"
         )
 
-    prod_db_path = "/opt/isaac/backend/data/levi.db"
+    prod_db_path = "/opt/isaac/backend/data/isaac.db"
 
     if not os.path.exists(prod_db_path):
         raise HTTPException(

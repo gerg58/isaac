@@ -87,7 +87,7 @@ DEFAULT_SETTINGS = {
     # Cold protection buffer
     "cold_protection_buffer": {
         "value": "7",
-        "description": "Degrees buffer for cold protection warnings (accounts for forecast error)"
+        "description": "Degrees fahrenheit buffer for cold protection warnings (accounts for forecast error)"
     },
 
     # Display settings
@@ -857,8 +857,8 @@ echo "STEP:backup"
 # Backup production database
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 mkdir -p /opt/isaac/data/backups
-if [ -f /opt/isaac/data/levi.db ]; then
-    cp /opt/isaac/data/levi.db /opt/isaac/data/backups/levi_backup_$TIMESTAMP.db
+if [ -f /opt/isaac/data/isaac.db ]; then
+    cp /opt/isaac/data/isaac.db /opt/isaac/data/backups/levi_backup_$TIMESTAMP.db
     echo "Backed up to levi_backup_$TIMESTAMP.db"
 fi
 
@@ -980,8 +980,8 @@ async def pull_from_production(admin: User = Depends(require_admin)):
         "message": "",
     }
 
-    dev_db = "/opt/isaac-dev/backend/data/levi.db"
-    prod_db = "/opt/isaac/backend/data/levi.db"
+    dev_db = "/opt/isaac-dev/backend/data/isaac.db"
+    prod_db = "/opt/isaac/backend/data/isaac.db"
     backup_dir = "/opt/isaac-dev/backend/data/backups"
 
     # Initialize variables for dev-only data preservation
@@ -1052,7 +1052,7 @@ async def pull_from_production(admin: User = Depends(require_admin)):
         else:
             results["steps"][-1]["status"] = "error"
             results["steps"][-1]["message"] = "Production database not found"
-            results["message"] = "Production database not found at /opt/isaac/backend/data/levi.db"
+            results["message"] = "Production database not found at /opt/isaac/backend/data/isaac.db"
             return results
 
         # Step 4: Restore dev-only tables and add missing columns
