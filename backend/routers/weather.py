@@ -370,6 +370,7 @@ async def refresh_weather(
         # Fallback to configured forecast provider
         obs = await forecast_service.get_current_observation()
         if obs:
+            logger.debug(obs)
             source = obs.get("source", "nws")
             if units == "metric" and source == "nws":
                 obs = convert_nws_observation_to_metric(obs)

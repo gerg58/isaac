@@ -1114,41 +1114,112 @@ class OpenMeteoForecastService:
             "message":          f"Rain in {hours_until}hr ({rain_hour['rain_chance']}%)",
         }
 
+    async def _fetch_rain_today(
+        self, lat: float, lon: float
+    ) -> Optional[float]:
+        """
+        Return today's accumulated precipitation in display units by summing
+        the hourly precipitation from Open-Meteo from local midnight to now.
+
+        Uses past_days=1 so hours that have already passed today are included
+        in the response (Open-Meteo's default forecast window starts at the
+        current hour and omits earlier hours of the current day).
+
+        Returns None if the fetch fails, so callers can treat it as missing
+        data rather than zero.
+        """
+        try:
+            local_tz   = ZoneInfo(config_settings.timezone)
+            now_local  = datetime.now(local_tz)
+            today_str  = now_local.strftime("%Y-%m-%d")  # "YYYY-MM-DD"
+            now_hour   = now_local.hour
+
+            precip_unit = "inch" if self.units == "us" else "mm"
+
+            data = await self._fetch({
+                "latitude":         lat,
+                "longitude":        lon,
+                "hourly":           "precipitation",
+                "precipitation_unit": precip_unit,
+                "timezone":         "auto",
+                "past_days":        1,   # include hours already elapsed today
+                "forecast_days":    1,   # we only need today; limit response size
+            })
+
+            if not data:
+                return None
+
+            times  = data.get("hourly", {}).get("time", [])
+            precip = data.get("hourly", {}).get("precipitation", [])
+
+            if not times or not precip:
+                return None
+
+            # Sum hourly values from local midnight up to and including the
+            # current hour.  Open-Meteo timestamps are naive local strings like
+            # "2024-06-01T00:00", "2024-06-01T01:00", …
+            total = 0.0
+            for t_str, p_val in zip(times, precip):
+                if not t_str.startswith(today_str):
+                    continue
+                # Parse the hour from the timestamp suffix "THH:MM"
+                try:
+                    hour = int(t_str[11:13])
+                except (IndexError, ValueError):
+                    continue
+                if hour > now_hour:
+                    break   # don't include future hours
+                if p_val is not None:
+                    total += p_val
+            logger.debug(f"total = {total}")
+            return round(total, 2 if self.units == "us" else 1)
+
+        except Exception as exc:
+            logger.warning(f"OpenMeteo rain_today fetch failed: {exc}")
+            return None
+
     async def get_current_observation(
         self, lat: float = None, lon: float = None
     ) -> Optional[Dict[str, Any]]:
         """
         Return current weather conditions from Open-Meteo.
-        Mirrors NWSForecastService.get_current_observation().
+        Mirrors NWSForecastService.get_current_observation(), including
+        rain_today (today's accumulated precipitation from local midnight).
         """
         lat, lon = self._resolve_coords(lat, lon)
         if not lat or not lon:
             logger.warning("Location not configured – cannot get current observation")
             return None
 
-        data = await self._fetch({
-            "latitude": lat,
-            "longitude": lon,
-            "current": (
-                "temperature_2m,"
-                "relative_humidity_2m,"
-                "dew_point_2m,"
-                "apparent_temperature,"
-                "weather_code,"
-                "wind_speed_10m,"
-                "wind_gusts_10m,"
-                "wind_direction_10m,"
-                "surface_pressure"
-            ),
-            "temperature_unit": self._labels.temp_api,
-            "wind_speed_unit":  self._labels.wind_api,
-            "timezone":         "auto",
-        })
+        # Fire both requests concurrently — current conditions + today's rain
+        import asyncio
+        current_data, rain_today = await asyncio.gather(
+            self._fetch({
+                "latitude": lat,
+                "longitude": lon,
+                "current": (
+                    "temperature_2m,"
+                    "relative_humidity_2m,"
+                    "dew_point_2m,"
+                    "apparent_temperature,"
+                    "weather_code,"
+                    "wind_speed_10m,"
+                    "wind_gusts_10m,"
+                    "wind_direction_10m,"
+                    "surface_pressure"
+                ),
+                "temperature_unit": self._labels.temp_api,
+                "wind_speed_unit":  self._labels.wind_api,
+                "timezone":         "auto",
+            }),
+            self._fetch_rain_today(lat, lon),
+        )
 
-        if not data:
+        if not current_data:
             return None
 
-        cur = data.get("current", {})
+        cur = current_data.get("current", {})
+        logger.debug(cur)
 
         # Open-Meteo always returns surface_pressure in hPa regardless of unit system.
         pressure_hpa = cur.get("surface_pressure")
@@ -1171,6 +1242,7 @@ class OpenMeteoForecastService:
             "wind_gust":         cur.get("wind_gusts_10m"),
             "wind_direction":    cur.get("wind_direction_10m"),
             "pressure_relative": pressure_out,
+            "rain_today":        rain_today,  # accumulated since local midnight
             "text_description":  _wmo_description(code),
             "units":             self.units,
         }

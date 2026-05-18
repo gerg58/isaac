@@ -238,6 +238,7 @@ async def get_dashboard(
         # Fallback to NWS/open_meteo observation if no stored readings
         nws_obs = await forecast_service.get_current_observation()
         if nws_obs:
+            logger.debug(f"nws_obs = {nws_obs}")
             # Convert raw wind direction degrees to compass string
             _obs_wind_deg = nws_obs.get("wind_direction")
             if _obs_wind_deg is not None:
@@ -258,12 +259,12 @@ async def get_dashboard(
 
             weather_data = DashboardWeather(
                 temperature=nws_obs.get("temp_outdoor"),
-                feels_like=nws_obs.get("temp_outdoor"),
+                feels_like=nws_obs.get("feels_like") or nws_obs.get("temp_outdoor"),
                 humidity=int(nws_obs.get("humidity_outdoor")) if nws_obs.get("humidity_outdoor") else None,
                 wind_speed=nws_obs.get("wind_speed"),
                 wind_direction=_obs_wind_compass,
                 wind_direction_degrees=_deg_int,
-                rain_today=None,
+                rain_today=nws_obs.get("rain_today"),   # populated by Open-Meteo; None for NWS (no daily accumulation)
                 uv_index=None,
                 reading_time=nws_obs.get("timestamp"),
                 temp_high_today=nws_obs.get("temp_outdoor"),
