@@ -1866,3 +1866,42 @@ async def get_verse_of_the_day(user: User = Depends(require_auth)):
             "text": "He causes the grass to grow for the cattle, and vegetation for the service of man, that he may bring forth food from the earth.",
             "version": "NIV"
         }
+
+
+@router.get("/quote-of-the-day")
+async def get_quote_of_the_day(user: User = Depends(require_auth)):
+    """
+    Fetch quote of the day from ZenQuotes API.
+    Returns the same quote for all users throughout the calendar day.
+    Response shape mirrors /verse-of-the-day: reference = author, version = source.
+    """
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                "https://zenquotes.io/api/today",
+                timeout=10.0,
+            )
+            response.raise_for_status()
+            data = response.json()
+
+            if data and isinstance(data, list) and len(data) > 0:
+                quote = data[0]
+                return {
+                    "reference": quote.get("a", "Unknown"),
+                    "text": quote.get("q", ""),
+                    "version": "ZenQuotes",
+                }
+
+        # Fallback
+        return {
+            "reference": "Ralph Waldo Emerson",
+            "text": "The creation of a thousand forests is in one acorn.",
+            "version": "ZenQuotes",
+        }
+    except Exception as e:
+        logger.error(f"Dashboard quote of the day fetch failed: {e}")
+        return {
+            "reference": "Ralph Waldo Emerson",
+            "text": "The creation of a thousand forests is in one acorn.",
+            "version": "ZenQuotes",
+        }
