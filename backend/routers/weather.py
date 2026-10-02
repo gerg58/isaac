@@ -33,7 +33,7 @@ from services.weather import (
     convert_summary_to_metric, convert_nws_observation_to_metric,
     convert_nws_simple_forecast_to_metric, convert_nws_hourly_to_metric,
     convert_nws_forecast_to_metric, convert_stats_to_metric,
-    convert_daily_summary_to_metric,
+    convert_daily_summary_to_metric, make_forecast_service,
 )
 from routers.auth import require_auth, require_admin
 from models.users import User
@@ -175,16 +175,8 @@ async def get_forecast_provider(db: AsyncSession) -> str:
 
 async def get_forecast_service(
     db: AsyncSession = Depends(get_db),
-) -> Union[NWSForecastService, OpenMeteoForecastService]:
-    """FastAPI dependency — returns the configured forecast service."""
-    provider = await get_forecast_provider(db)
-    if provider == "open_meteo":
-        logger.debug("Using Open-Meteo forecast provider")
-        units = await get_unit_system(db)
-        return OpenMeteoForecastService(units=units)
-    logger.debug("Using NWS forecast provider")
-    return NWSForecastService()
-
+) -> NWSForecastService | OpenMeteoForecastService:
+    return await make_forecast_service(db)
 
 async def get_units_dep(
     db: AsyncSession = Depends(get_db),
@@ -370,6 +362,7 @@ async def refresh_weather(
         # Fallback to configured forecast provider
         obs = await forecast_service.get_current_observation()
         if obs:
+            logger.debug(obs)
             source = obs.get("source", "nws")
             if units == "metric" and source == "nws":
                 obs = convert_nws_observation_to_metric(obs)
@@ -426,6 +419,7 @@ async def get_weather_history(
     db: AsyncSession = Depends(get_db),
 ):
     """Get weather readings for the past X hours."""
+    logger.debug(f"get_weather_history (-{hours} hours)")
     try:
         start = datetime.utcnow() - timedelta(hours=hours)
         return await weather_service.get_readings_range(db, start, datetime.utcnow())

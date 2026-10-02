@@ -25,7 +25,7 @@ from models.weather import WeatherAlert
 from models.settings import AppSetting
 from models.team import TeamMember, MemberGear, MemberGearContents, MemberTraining, MemberMedicalAppointment
 from models.budget import BudgetCategory, BudgetAccount, BudgetTransaction, AccountBucket, CategoryType, TransactionType, TransactionSource
-from services.weather import WeatherService, NWSForecastService
+from services.weather import WeatherService, NWSForecastService, OpenMeteoForecastService, make_forecast_service
 from services.email import EmailService
 
 
@@ -482,6 +482,7 @@ class SchedulerService:
         global scheduler_service
         self.scheduler = AsyncIOScheduler(timezone=settings.timezone)
         self.weather_service = WeatherService()
+        # Sync default — replaced with DB-configured provider in start()
         self.forecast_service = NWSForecastService()
         self._sunset_job_scheduled = False
         # Calendar sync health tracking
@@ -504,6 +505,13 @@ class SchedulerService:
 
     async def start(self):
         """Start the scheduler with all jobs"""
+        # Resolve the DB-configured forecast provider now that the event loop is running
+        try:
+            async with async_session() as db:
+                self.forecast_service = await make_forecast_service(db)
+            logger.info(f"Scheduler using forecast provider: {type(self.forecast_service).__name__}")
+        except Exception as e:
+            logger.warning(f"Could not resolve forecast provider from DB: {e}. Using default.")
         # Weather monitoring - every 5 minutes
         self.scheduler.add_job(
             self.poll_weather,

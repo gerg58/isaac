@@ -167,10 +167,10 @@ npm run build
 ### Database issues
 ```bash
 # Check database
-sqlite3 /opt/isaac/backend/data/levi.db ".tables"
+sqlite3 /opt/isaac/backend/data/isaac.db ".tables"
 
 # Backup database
-cp /opt/isaac/backend/data/levi.db /opt/isaac/backend/data/levi.db.backup
+cp /opt/isaac/backend/data/isaac.db /opt/isaac/backend/data/isaac.db.backup
 ```
 
 ### Permission issues

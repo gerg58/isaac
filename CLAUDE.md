@@ -215,8 +215,8 @@ Both environments run on the same Pi (isaac.local):
 
 | Environment | Directory | Service | Port | Database |
 |-------------|-----------|---------|------|----------|
-| **PROD** | `/opt/isaac/` | `isaac-backend.service` | 8000 | `/opt/isaac/backend/data/levi.db` |
-| **DEV** | `/opt/isaac-dev/` | `isaac-dev-backend.service` | 8443 | `/opt/isaac-dev/backend/data/levi.db` |
+| **PROD** | `/opt/isaac/` | `isaac-backend.service` | 8000 | `/opt/isaac/backend/data/isaac.db` |
+| **DEV** | `/opt/isaac-dev/` | `isaac-dev-backend.service` | 8443 | `/opt/isaac-dev/backend/data/isaac.db` |
 
 ### Dev Environment
 - URL: `https://isaac.local:8443`

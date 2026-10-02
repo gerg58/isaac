@@ -29,15 +29,15 @@ function BibleVerse() {
   useEffect(() => {
     const fetchVerse = async () => {
       try {
-        const response = await api.get('/dashboard/verse-of-the-day')
+        const response = await api.get('/dashboard/quote-of-the-day')
         setVerse(response.data)
       } catch (err) {
-        console.error('Failed to fetch Bible verse:', err)
+        console.error('Failed to fetch quote:', err)
         // Show a default verse on error
         setVerse({
-          text: 'He causes the grass to grow for the cattle, and vegetation for the service of man, that he may bring forth food from the earth.',
-          reference: 'Psalm 104:14',
-          version: 'NIV'
+          text: 'The creation of a thousand forests is in one acorn.',
+          reference: 'Ralph Waldo Emerson',
+          version: 'ZenQuotes'
         })
       } finally {
         setLoading(false)

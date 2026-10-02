@@ -309,7 +309,7 @@ if [[ "$RESET_DB" =~ ^[Yy] ]]; then
 else
     # Update farm name in existing database
     if [ -n "$FARM_NAME" ]; then
-        DB_FILE="$INSTALL_DIR/backend/data/levi.db"
+        DB_FILE="$INSTALL_DIR/backend/data/isaac.db"
         if [ -f "$DB_FILE" ]; then
             sqlite3 "$DB_FILE" "INSERT OR REPLACE INTO app_settings (key, value) VALUES ('farm_name', '$FARM_NAME');" 2>/dev/null || true
             success "Farm name updated"

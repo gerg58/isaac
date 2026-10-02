@@ -42,8 +42,8 @@ Data persists across container restarts and rebuilds.
 
 ```bash
 # Backup the database
-docker compose exec backend cp data/levi.db data/levi.db.backup
-docker compose cp backend:/app/backend/data/levi.db.backup ./backup-$(date +%Y%m%d).db
+docker compose exec backend cp data/isaac.db data/isaac.db.backup
+docker compose cp backend:/app/backend/data/isaac.db.backup ./backup-$(date +%Y%m%d).db
 
 # Backup the entire data volume
 docker run --rm -v isaac-data:/data -v $(pwd):/backup alpine tar czf /backup/isaac-data-$(date +%Y%m%d).tar.gz -C /data .
@@ -53,7 +53,7 @@ docker run --rm -v isaac-data:/data -v $(pwd):/backup alpine tar czf /backup/isa
 
 ```bash
 # Restore database from backup
-docker compose cp ./backup-20260224.db backend:/app/backend/data/levi.db
+docker compose cp ./backup-20260224.db backend:/app/backend/data/isaac.db
 docker compose restart backend
 ```
 
@@ -83,7 +83,7 @@ Browser → nginx:443 (frontend container, self-signed TLS)
 
 Backend container (port 8000)
     └── /app/backend/data/ (Docker volume)
-            ├── levi.db          (SQLite database)
+            ├── isaac.db          (SQLite database)
             ├── plant_photos/    (uploaded photos)
             ├── animal_photos/
             └── ...
