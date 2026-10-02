@@ -916,6 +916,7 @@ class OpenMeteoForecastService:
                 "temperature_2m_max,"
                 "temperature_2m_min,"
                 "precipitation_probability_max,"
+                "rain_sum,"
                 "wind_speed_10m_max,"
                 "wind_direction_10m_dominant,"
                 "precipitation_sum,"
@@ -941,6 +942,7 @@ class OpenMeteoForecastService:
             t_max    = daily["temperature_2m_max"][i]
             t_min    = daily["temperature_2m_min"][i]
             rain_pct = daily.get("precipitation_probability_max", [0] * len(dates))[i] or 0
+            totalrainin = daily.get("rain_sum")[i]
             wind_val = daily.get("wind_speed_10m_max", [None] * len(dates))[i]
             wind_dir = daily.get("wind_direction_10m_dominant", [None] * len(dates))[i]
             sunrise  = daily.get("sunrise", [""] * len(dates))[i]
@@ -1184,6 +1186,9 @@ class OpenMeteoForecastService:
                 "wind_direction_10m,"
                 "surface_pressure"
             ),
+            "daily": (
+                "rain_sum"
+            ),
             "temperature_unit": self._labels.temp_api,
             "wind_speed_unit":  self._labels.wind_api,
             "timezone":         "auto",
@@ -1193,6 +1198,7 @@ class OpenMeteoForecastService:
             return None
 
         cur = data.get("current", {})
+        cur2 = data.get("daily",{})
 
         # Open-Meteo always returns surface_pressure in hPa regardless of unit system.
         pressure_hpa = cur.get("surface_pressure")
@@ -1214,6 +1220,7 @@ class OpenMeteoForecastService:
             "wind_speed":        cur.get("wind_speed_10m"),
             "wind_gust":         cur.get("wind_gusts_10m"),
             "wind_direction":    cur.get("wind_direction_10m"),
+            "rain_today":        cur2.get("rain_sum")[0],
             "pressure_relative": pressure_out,
             "text_description":  _wmo_description(code),
             "units":             self.units,
@@ -1297,7 +1304,7 @@ class WeatherService:
         See: https://github.com/ambient-weather/api-docs/wiki/Device-Data-Specs
         """
         reading_time = datetime.fromtimestamp(data.get("dateutc", 0) / 1000)
-
+        logger.info(f"rain_total = {data.get("dailyrainin")}")
         return {
             "reading_time":       reading_time,
             "temp_outdoor":       data.get("tempf"),
