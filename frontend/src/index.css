@@ -5,7 +5,8 @@
 
 @import './styles/tokens.css';
 
-@import "tailwindcss"
+@import "tailwindcss";
+@config "../tailwind.config.js";
 /* @tailwind base;
 @tailwind components;
 @tailwind utilities; */

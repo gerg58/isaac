@@ -1226,12 +1226,16 @@ class OpenMeteoForecastService:
             "units":             self.units,
         }
     # @staticmethod    
-    async def fetch_current_weather(self) -> Optional[Dict[str, Any]]:
+    async def fetch_current_weather(
+        self, lat: float = None, lon: float = None
+    ) -> Optional[Dict[str, Any]]:
         """Fetch current weather from OpenMeteo API."""
+        
         lat, lon = self._resolve_coords(lat, lon)
         if not lat or not lon:
-            logger.warning(f"Location not configured – cannot get current observation")
+            logger.warning(f"Location not configured – cannot get current weather")
             return None
+
         data = await self._fetch({
             "latitude": lat,
             "longitude": lon,
@@ -1259,9 +1263,27 @@ class OpenMeteoForecastService:
         if not data:
             return None
 
-        logger.debug("API call returns data: {data}")
+        logger.debug(f"API call returns data: {data}")
 
-        return None
+        tz = ZoneInfo(data["timezone"])
+        current = data["current"]
+        isoformat = current["time"]
+        dt_local = datetime.fromisoformat(isoformat).replace(tzinfo=tz)
+        
+        logger.debug(f"dt_local = {dt_local}")
+        dateutc_ms = int(dt_local.timestamp() * 1000)
+        baromabsin = hpa_to_inhg(current["surface_pressure"])
+        return {
+            "dateutc":      dateutc_ms,
+            "tempf":        current["temperature_2m"],
+            "feelsLike":    current["apparent_temperature"],
+            "humidity":     current["relative_humidity_2m"],
+            "windspeedmph": current["wind_speed_10m"],
+            "windgustmph":  current["wind_gusts_10m"],
+            "winddir":      current["wind_direction_10m"],
+            "pressure_absolute":    baromabsin,
+            "totalrainin":  current["precipitation"],
+        }
 
 
 # ===========================================================================

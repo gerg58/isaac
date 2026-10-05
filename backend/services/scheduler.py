@@ -1016,7 +1016,8 @@ class SchedulerService:
                     # Check for alerts (creates dashboard alerts, email handled by sunset scheduler)
                     await self.weather_service.check_alerts(db, reading)
         except Exception as e:
-            logger.error(f"Error polling weather: {e}")
+            logger.opt(exception=True).error(f"Error polling weather: {e}")
+            # logger.error(f"Error polling weather: {e}")
 
     async def check_auto_watering(self):
         """Check plants for rain/sprinkler watering decisions (runs every 30 min)"""
