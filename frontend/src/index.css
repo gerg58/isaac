@@ -5,9 +5,10 @@
 
 @import './styles/tokens.css';
 
-@tailwind base;
+@import "tailwindcss"
+/* @tailwind base;
 @tailwind components;
-@tailwind utilities;
+@tailwind utilities; */
 
 /* ============================================
    BASE LAYER - Fundamental element styles

@@ -1225,6 +1225,43 @@ class OpenMeteoForecastService:
             "text_description":  _wmo_description(code),
             "units":             self.units,
         }
+    # @staticmethod    
+    async def fetch_current_weather(self) -> Optional[Dict[str, Any]]:
+        """Fetch current weather from OpenMeteo API."""
+        lat, lon = self._resolve_coords(lat, lon)
+        if not lat or not lon:
+            logger.warning(f"Location not configured – cannot get current observation")
+            return None
+        data = await self._fetch({
+            "latitude": lat,
+            "longitude": lon,
+            "daily": "precipitation_sum",
+            "current": (
+                "temperature_2m", 
+                "relative_humidity_2m", 
+                "apparent_temperature", 
+                "is_day", 
+                "precipitation", 
+                "weather_code", 
+                "cloud_cover", 
+                "pressure_msl", 
+                "surface_pressure", 
+                "wind_speed_10m", 
+                "wind_direction_10m", 
+                "wind_gusts_10m"
+            ),
+            "timezone": "auto",
+            "past_days": 5,
+            "wind_speed_unit": "mph",
+            "temperature_unit": "fahrenheit",
+            "precipitation_unit": "inch",
+        })
+        if not data:
+            return None
+
+        logger.debug("API call returns data: {data}")
+
+        return None
 
 
 # ===========================================================================
@@ -1245,6 +1282,7 @@ class WeatherService:
         self.api_key = api_key or config_settings.awn_api_key
         self.app_key = app_key or config_settings.awn_app_key
         self._client: Optional[httpx.AsyncClient] = None
+        self._openmeteo = OpenMeteoForecastService()
 
     async def configure_from_db(self, db: AsyncSession) -> None:
         """Load API keys from database settings."""
@@ -1266,8 +1304,8 @@ class WeatherService:
     async def fetch_current_weather(self) -> Optional[Dict[str, Any]]:
         """Fetch current weather from Ambient Weather API."""
         if not self.api_key or not self.app_key:
-            logger.debug("Ambient Weather API keys not configured - using web forecast only")
-            return None
+            logger.debug("Ambient Weather API keys not configured - using OpenMeteo observations")
+            return await self._openmeteo.fetch_current_weather()
 
         client = await self.get_client()
         url    = f"{self.BASE_URL}/devices"
