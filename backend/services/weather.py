@@ -1469,14 +1469,22 @@ class WeatherService:
         """Check weather conditions and generate alerts if needed."""
         alerts = []
 
+        ## All in fahrenheit. Convert any metric readings before comparison.
         frost_temp  = await get_threshold(db, "frost_warning_temp")
         freeze_temp = await get_threshold(db, "freeze_warning_temp")
         heat_temp   = await get_threshold(db, "heat_warning_temp")
         wind_speed  = await get_threshold(db, "wind_warning_speed")
         rain_inches = await get_threshold(db, "rain_warning_inches")
 
+        temp_outdoor_f = None
+        if reading.temp_outdoor:
+            if reading.temp_units and reading.temp_units == "°F":
+                temp_outdoor_f = reading.temp_outdoor
+            else:
+                temp_outdoor_f = c_to_f(reading.temp_outdoor)
+
         # Frost / freeze warning
-        if reading.temp_outdoor and reading.temp_outdoor <= frost_temp:
+        if temp_outdoor_f and temp_outdoor_f <= frost_temp:
             severity   = AlertSeverity.CRITICAL if reading.temp_outdoor <= freeze_temp else AlertSeverity.WARNING
             alert_type = "freeze_warning"   if reading.temp_outdoor <= freeze_temp else "frost_warning"
 
@@ -1485,7 +1493,7 @@ class WeatherService:
                 severity=severity,
                 title=f"{'Freeze' if severity == AlertSeverity.CRITICAL else 'Frost'} Warning",
                 message=(
-                    f"Temperature has dropped to {reading.temp_outdoor}°F. "
+                    f"Temperature has dropped to {reading.temp_outdoor}{reading.temp_units}. "
                     "Protect frost-sensitive plants!"
                 ),
                 trigger_value=reading.temp_outdoor,
@@ -1498,13 +1506,13 @@ class WeatherService:
             ))
 
         # Heat warning
-        if reading.temp_outdoor and reading.temp_outdoor >= heat_temp:
+        if temp_outdoor_f and temp_outdoor_f >= heat_temp:
             alerts.append(WeatherAlert(
                 alert_type="heat_warning",
                 severity=AlertSeverity.WARNING,
                 title="Extreme Heat Warning",
                 message=(
-                    f"Temperature has reached {reading.temp_outdoor}°F. "
+                    f"Temperature has reached {reading.temp_outdoor}{reading.temp_units}. "
                     "Ensure animals have shade and water."
                 ),
                 trigger_value=reading.temp_outdoor,
@@ -1517,12 +1525,19 @@ class WeatherService:
             ))
 
         # High wind warning
-        if reading.wind_gust and reading.wind_gust >= wind_speed:
+        wind_gust_mph = None
+        if reading.wind_gust:
+            if reading.windspeed_units and reading.windspeed_units == "mph":
+                wind_gust_mph = reading.wind_gust
+            else:
+                wind_gust_mph = mph_to_kmh(reading.wind_gust)
+
+        if wind_gust_mph and wind_gust_mph >= wind_speed:
             alerts.append(WeatherAlert(
                 alert_type="wind_warning",
                 severity=AlertSeverity.WARNING,
                 title="High Wind Warning",
-                message=f"Wind gusts reaching {reading.wind_gust} mph.",
+                message=f"Wind gusts reaching {reading.wind_gust} {reading.windspeed_units}.",
                 trigger_value=reading.wind_gust,
                 threshold_value=wind_speed,
                 recommended_actions=(
@@ -1533,12 +1548,18 @@ class WeatherService:
             ))
 
         # Heavy rain warning
-        if reading.rain_daily and reading.rain_daily >= rain_inches:
+        rain_daily_in = None
+        if reading.rain_daily:
+            if reading.rain_units and reading.rain_units == "in":
+                rain_daily_in = reading.rain_daily
+            else:
+                rain_daily_in = mm_to_inches(reading.rain_daily)
+        if rain_daily_in and rain_daily_in >= rain_inches:
             alerts.append(WeatherAlert(
                 alert_type="heavy_rain",
                 severity=AlertSeverity.INFO,
                 title="Heavy Rain",
-                message=f"Daily rainfall has reached {reading.rain_daily} inches.",
+                message=f"Daily rainfall has reached {reading.rain_daily} {reading.rain_units}.",
                 trigger_value=reading.rain_daily,
                 threshold_value=rain_inches,
                 recommended_actions=(
