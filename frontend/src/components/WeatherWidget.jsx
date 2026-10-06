@@ -34,7 +34,7 @@ function WeatherWidget({ weather, className = '' }) {
         setForecast(forecastRes.data.forecast)
         setRainForecast(rainRes.data)
         const s = settingsRes.data?.settings || {}
-        setUnitSystem(s.weather_units?.value === 'metric' ? 'metric' : 'us')
+        setUnitSystem(s.weather_unit_system?.value === 'metric' ? 'metric' : 'us')
         setWindDirStyle(s.wind_direction_style?.value === 'degrees' ? 'degrees' : 'compass')
       } catch (error) {
         console.error('Failed to fetch forecast:', error)

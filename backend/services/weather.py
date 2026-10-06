@@ -22,6 +22,7 @@ compatibility.
 Open-Meteo docs: https://open-meteo.com/en/docs
 """
 
+# from backend.routers import weather_router
 import httpx
 import json
 import re
@@ -35,6 +36,7 @@ from sqlalchemy import select, desc
 from config import settings as config_settings
 from models.weather import WeatherReading, WeatherAlert, AlertSeverity
 from models.settings import AppSetting
+from models.database import async_session
 
 
 # ===========================================================================
@@ -50,17 +52,18 @@ class UnitLabels(NamedTuple):
     wind_speed: str    # "mph" /  "km/h"
     pressure: str      # "inHg" / "hPa"
     rain: str          # "in"  /  "mm"
+    rain_api: str      # "inch" / "mm"             (Open-Meteo param)
     temp_api: str      # "fahrenheit" / "celsius"  (Open-Meteo param)
-    wind_api: str      # "mph"        / "kmh"       (Open-Meteo param)
+    wind_api: str      # "mph"        / "kmh"      (Open-Meteo param)
 
 
 US_LABELS = UnitLabels(
     temperature="°F", wind_speed="mph", pressure="inHg", rain="in",
-    temp_api="fahrenheit", wind_api="mph",
+    rain_api = "inch", temp_api="fahrenheit", wind_api="mph",
 )
 METRIC_LABELS = UnitLabels(
     temperature="°C", wind_speed="km/h", pressure="hPa", rain="mm",
-    temp_api="celsius", wind_api="kmh",
+    rain_api="mm", temp_api="celsius", wind_api="kmh",
 )
 
 
@@ -75,7 +78,7 @@ async def get_unit_system(db: AsyncSession) -> str:
     """
     try:
         result = await db.execute(
-            select(AppSetting).where(AppSetting.key == "weather_units")
+            select(AppSetting).where(AppSetting.key == "weather_unit_system")
         )
         setting = result.scalar_one_or_none()
         if setting and setting.value in VALID_UNIT_SYSTEMS:
@@ -83,7 +86,7 @@ async def get_unit_system(db: AsyncSession) -> str:
     except Exception:
         logger.warning("get_unit_system: DB read failed, using config default")
 
-    cfg = getattr(config_settings, "weather_units", "us")
+    cfg = getattr(config_settings, "weather_unit_system", "us")
     return cfg if cfg in VALID_UNIT_SYSTEMS else "us"
 
 
@@ -443,6 +446,22 @@ async def get_awn_keys_from_db(db: AsyncSession) -> Tuple[Optional[str], Optiona
 
     return api_key, app_key
 
+async def get_weather_units_from_db(db: AsyncSession) -> Tuple[Optional[str], Optional[str]]:
+    """
+    Get weather units from database settings.
+    Returns weather_unit_system.
+    Falls back to config file values for backwards compatibility.
+    Uses get_setting which handles decryption of encrypted values.
+    """
+    from routers.settings import get_setting
+
+    weather_unit_system = await get_setting(db, "weather_unit_system")
+
+    if not weather_unit_system and config_settings.weather_unit_system:
+        weather_unit_system = config_settings.weather_unit_system
+
+    return weather_unit_system
+
 
 async def make_forecast_service(
     db: AsyncSession = None,
@@ -455,7 +474,7 @@ async def make_forecast_service(
     back to the config-file value and defaults to NWSForecastService.
 
     For unit-aware instantiation (Open-Meteo only), the caller should pass
-    a db session so the weather_units setting can also be read.
+    a db session so the weather_unit_system setting can also be read.
     """
     provider = "nws"
     units    = "us"
@@ -470,7 +489,7 @@ async def make_forecast_service(
                 provider = setting.value
 
             result = await db.execute(
-                select(AppSetting).where(AppSetting.key == "weather_units")
+                select(AppSetting).where(AppSetting.key == "weather_unit_system")
             )
             setting = result.scalar_one_or_none()
             if setting and setting.value in ("us", "metric"):
@@ -549,7 +568,6 @@ class NWSForecastService:
             logger.warning("Location not configured - cannot get forecast")
             return None
 
-        logger.debug("Calling get_grid_info from get_forecast")
         grid = await self.get_grid_info(lat, lon)
         if not grid:
             return None
@@ -864,6 +882,10 @@ class OpenMeteoForecastService:
         except Exception as exc:
             logger.warning(f"format_iso_utc: could not convert '{dt_str}': {exc}")
             return dt_str
+
+    def set_units(self, units: str) -> None:
+        self.units = units if units in VALID_UNIT_SYSTEMS else "us"
+        self._labels = get_unit_labels(self.units)
 
     async def get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -1256,33 +1278,34 @@ class OpenMeteoForecastService:
             ),
             "timezone": "auto",
             "past_days": 5,
-            "wind_speed_unit": "mph",
-            "temperature_unit": "fahrenheit",
-            "precipitation_unit": "inch",
+            "wind_speed_unit":  self._labels.wind_api,
+            "temperature_unit": self._labels.temp_api,
+            "precipitation_unit": self._labels.rain_api,
         })
         if not data:
             return None
-
-        logger.debug(f"API call returns data: {data}")
 
         tz = ZoneInfo(data["timezone"])
         current = data["current"]
         isoformat = current["time"]
         dt_local = datetime.fromisoformat(isoformat).replace(tzinfo=tz)
         
-        logger.debug(f"dt_local = {dt_local}")
         dateutc_ms = int(dt_local.timestamp() * 1000)
         baromabsin = hpa_to_inhg(current["surface_pressure"])
         return {
-            "dateutc":      dateutc_ms,
-            "tempf":        current["temperature_2m"],
-            "feelsLike":    current["apparent_temperature"],
-            "humidity":     current["relative_humidity_2m"],
-            "windspeedmph": current["wind_speed_10m"],
-            "windgustmph":  current["wind_gusts_10m"],
-            "winddir":      current["wind_direction_10m"],
-            "pressure_absolute":    baromabsin,
-            "totalrainin":  current["precipitation"],
+            "dateutc":              dateutc_ms,
+            "temp":                 current["temperature_2m"],
+            "tempunits":            self._labels.temperature,
+            "feelsLike":            current["apparent_temperature"],
+            "humidity":             current["relative_humidity_2m"],
+            "windspeedunits":       self._labels.wind_api,
+            "windspeed":            current["wind_speed_10m"],
+            "windgust":             current["wind_gusts_10m"],
+            "winddir":              current["wind_direction_10m"],
+            "pressure_units":       "hPa",
+            "pressure_absolute":    current["surface_pressure"],
+            "rainunits":            self._labels.rain,
+            "totalrain":            current["precipitation"],
         }
 
 
@@ -1305,6 +1328,11 @@ class WeatherService:
         self.app_key = app_key or config_settings.awn_app_key
         self._client: Optional[httpx.AsyncClient] = None
         self._openmeteo = OpenMeteoForecastService()
+    
+    async def refresh_settings(self) -> None:
+        """Reload API keys and units from the database."""
+        async with async_session() as db:
+            await self.configure_from_db(db)
 
     async def configure_from_db(self, db: AsyncSession) -> None:
         """Load API keys from database settings."""
@@ -1313,6 +1341,9 @@ class WeatherService:
             self.api_key = api_key
         if app_key:
             self.app_key = app_key
+        # Set weather units
+        unit_system = await get_weather_units_from_db(db)
+        self._openmeteo.set_units(unit_system)
 
     async def get_client(self) -> httpx.AsyncClient:
         if self._client is None or self._client.is_closed:
@@ -1327,6 +1358,7 @@ class WeatherService:
         """Fetch current weather from Ambient Weather API."""
         if not self.api_key or not self.app_key:
             logger.debug("Ambient Weather API keys not configured - using OpenMeteo observations")
+            await self.refresh_settings()
             return await self._openmeteo.fetch_current_weather()
 
         client = await self.get_client()
@@ -1367,23 +1399,28 @@ class WeatherService:
         logger.info(f"rain_total = {data.get("dailyrainin")}")
         return {
             "reading_time":       reading_time,
-            "temp_outdoor":       data.get("tempf"),
+            "temp_units":         data.get("tempunits") or "°F",
+            # "temperature":        data.get("temp"),
+            "temp_outdoor":       data.get("temp") or data.get("tempf"),
             "temp_indoor":        data.get("tempinf"),
             "feels_like":         data.get("feelsLike"),
             "dew_point":          data.get("dewPoint"),
             "humidity_outdoor":   data.get("humidity"),
             "humidity_indoor":    data.get("humidityin"),
-            "wind_speed":         data.get("windspeedmph"),
-            "wind_gust":          data.get("windgustmph"),
+            "windspeed_units":    data.get("windspeedunits") or "mph",
+            "wind_speed":         data.get("windspeed") or data.get("windspeedmph"),
+            "wind_gust":          data.get("windgust") or data.get("windgustmph"),
             "wind_direction":     data.get("winddir"),
             "wind_direction_avg": data.get("winddir_avg10m"),
+            "pressure_units":     "hPa" if data.get("pressure_hpa") else "inHg",
             "pressure_relative":  data.get("baromrelin"),
-            "pressure_absolute":  data.get("baromabsin"),
+            "pressure_absolute":  data.get("pressure_hpa") or data.get("baromabsin"),
             "rain_hourly":        data.get("hourlyrainin"),
             "rain_daily":         data.get("dailyrainin"),
             "rain_weekly":        data.get("weeklyrainin"),
             "rain_monthly":       data.get("monthlyrainin"),
-            "rain_total":         data.get("totalrainin"),
+            "rain_total":         data.get("totalrain") or data.get("totalrainin"),
+            "rain_units":         data.get("rainunits") or "in",
             "rain_rate":          data.get("rainratein"),
             "solar_radiation":    data.get("solarradiation"),
             "uv_index":           data.get("uv"),
@@ -1404,7 +1441,7 @@ class WeatherService:
         db.add(reading)
         await db.commit()
         await db.refresh(reading)
-        logger.info(f"Saved weather reading: {reading.temp_outdoor}°F at {reading.reading_time}")
+        logger.info(f"Saved weather reading: {reading.temp_outdoor}{reading.temp_units} at {reading.reading_time}")
         return reading
 
     async def get_latest_reading(self, db: AsyncSession) -> Optional[WeatherReading]:

@@ -345,10 +345,10 @@ async def refresh_weather(
             await weather_service.check_alerts(db, reading)
             temp_display = reading.temp_outdoor
             if units == "metric" and temp_display is not None:
-                from services.weather_units import f_to_c
+                from services.weather import f_to_c
                 temp_display = f_to_c(temp_display)
             logger.info(
-                "Weather refreshed from AWN: temp={}, humidity={}",
+                "Weather refreshed from weather service: temp={}, humidity={}",
                 reading.temp_outdoor, reading.humidity_outdoor,
             )
             return {

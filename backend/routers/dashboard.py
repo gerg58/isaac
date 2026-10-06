@@ -1546,8 +1546,8 @@ async def get_cold_protection_needed(
         return {"needs_protection": False, "plants": [], "current_temp": None, "forecast_low": None}
 
     # Normalise check_temp to °F — plant thresholds are stored in °F
-    weather_units = await get_setting(db, "weather_units") or "us"
-    if weather_units == "metric":
+    weather_unit_system = await get_setting(db, "weather_unit_system") or "us"
+    if weather_unit_system == "metric":
         check_temp_f = check_temp * 9 / 5 + 32
     else:
         check_temp_f = check_temp

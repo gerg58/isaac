@@ -284,7 +284,7 @@ DEFAULT_SETTINGS = {
         "value": "nws",
         "description": "Forecast provider: nws (US only) or open_meteo (global)"
     },
-    "weather_units": {
+    "weather_unit_system": {
         "value": "us",
         "description": "Unit system for weather display: us (°F, mph, inHg, in) or metric (°C, km/h, hPa, mm)"
     },

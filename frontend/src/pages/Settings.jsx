@@ -1082,7 +1082,7 @@ function Settings() {
     }
 
     // Weather unit system dropdown
-    if (key === 'weather_units') {
+    if (key === 'weather_unit_system') {
       return (
         <select
           value={setting.value || 'us'}
@@ -2005,7 +2005,7 @@ function Settings() {
               </p>
               <div className="space-y-4">
                 {renderSettingCard('forecast_provider')}
-                {renderSettingCard('weather_units')}
+                {renderSettingCard('weather_unit_system')}
                 {renderSettingCard('wind_direction_style')}
                 {weatherApiSettings.map(key => renderSettingCard(key))}
               </div>

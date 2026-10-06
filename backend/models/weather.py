@@ -3,7 +3,7 @@ Weather Data Models
 """
 
 from sqlalchemy import Column, Integer, String, Float, Boolean, DateTime, Text, Enum
-from datetime import datetime
+from datetime import datetime, timezone
 import enum
 
 from .database import Base
@@ -23,10 +23,11 @@ class WeatherReading(Base):
 
     # Timestamp
     reading_time = Column(DateTime, nullable=False, index=True)
-    received_at = Column(DateTime, default=datetime.utcnow)
+    received_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     # Temperature
-    temp_outdoor = Column(Float)  # °F
+    temp_units = Column(Text)  # °F 'f' or °C 'c'
+    temp_outdoor = Column(Float)
     temp_indoor = Column(Float)
     feels_like = Column(Float)
     dew_point = Column(Float)
@@ -36,17 +37,20 @@ class WeatherReading(Base):
     humidity_indoor = Column(Integer)
 
     # Wind
-    wind_speed = Column(Float)  # mph
+    windspeed_units = Column(Text) # 'mph' or 'kmh'
+    wind_speed = Column(Float)  
     wind_gust = Column(Float)
     wind_direction = Column(Integer)  # degrees
     wind_direction_avg = Column(Integer)
 
     # Pressure
-    pressure_relative = Column(Float)  # inHg
+    pressure_units = Column(Text) # 'inHg' or 'hPa'
+    pressure_relative = Column(Float)  # inHg or hPa
     pressure_absolute = Column(Float)
 
     # Rain
-    rain_hourly = Column(Float)  # inches
+    rain_units = Column(Text)    # 'in' or 'mm'
+    rain_hourly = Column(Float)  # inches or mm
     rain_daily = Column(Float)
     rain_weekly = Column(Float)
     rain_monthly = Column(Float)

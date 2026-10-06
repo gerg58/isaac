@@ -88,7 +88,7 @@ function ColdProtectionWidget({ onAcknowledge }) {
         // Fetch unit system setting alongside weather data
         try {
           const settingsRes = await getSettings()
-          const units = settingsRes.data?.settings?.weather_units?.value
+          const units = settingsRes.data?.settings?.weather_unit_system?.value
           setUnitSystem(units === 'si' || units === 'metric' ? units : 'us')
         } catch (_) { /* leave unitSystem as default 'us' */ }
       } catch (error) {

@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # Timezone & Location
     timezone: str = "America/New_York"
-    usda_zone: str = "9b"
+    usda_zone: str = "9b" # Irrelevant to most of the world
     latitude: float = 28.913413  # Oxford, FL
     longitude: float = -82.093794
 
